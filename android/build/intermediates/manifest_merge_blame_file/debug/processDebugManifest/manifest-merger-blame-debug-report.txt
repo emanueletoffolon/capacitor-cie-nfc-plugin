@@ -1,0 +1,28 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.yourcompany.plugins.cienfcplugin" >
+4
+5    <uses-sdk android:minSdkVersion="23" />
+6
+7    <!-- Permessi NFC richiesti -->
+8    <uses-permission android:name="android.permission.NFC" />
+8-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:5:5-62
+8-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:5:22-59
+9
+10    <!-- Feature NFC richiesta -->
+11    <uses-feature
+11-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:8:5-10:35
+12        android:name="android.hardware.nfc"
+12-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:9:9-44
+13        android:required="true" />
+13-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:10:9-32
+14
+15    <!-- Supporto per ISO-DEP (smart card) -->
+16    <uses-feature
+16-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:13:5-15:36
+17        android:name="android.hardware.nfc.hce"
+17-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:14:9-48
+18        android:required="false" />
+18-->/Users/emanueletoffolon/Apps/capacitor-plugins/capacitor-cie-nfc-plugin/android/src/main/AndroidManifest.xml:15:9-33
+19
+20</manifest>

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "lib": ["es2017"],
+    "target": "es2017",
+    "moduleResolution": "node",
+    "types": ["node"],
+    "declaration": true,
+    "declarationMap": true,
+    "outDir": "./dist/esm",
+    "strict": true,
+    "noImplicitAny": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "files": [
+    "src/index.ts"
+  ]
+}
+

@@ -1,0 +1,407 @@
+{
+  "api": {
+    "name": "CieNfcPluginPlugin",
+    "slug": "cienfcpluginplugin",
+    "docs": "",
+    "tags": [],
+    "methods": [
+      {
+        "name": "isNfcAvailable",
+        "signature": "() => Promise<{ available: boolean; }>",
+        "parameters": [],
+        "returns": "Promise<{ available: boolean; }>",
+        "tags": [],
+        "docs": "Verifica se NFC è disponibile e attivo sul dispositivo",
+        "complexTypes": [],
+        "slug": "isnfcavailable"
+      },
+      {
+        "name": "enableNfc",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "Abilita NFC se disabilitato (reindirizza alle impostazioni)",
+        "complexTypes": [],
+        "slug": "enablenfc"
+      },
+      {
+        "name": "readCie",
+        "signature": "(options: ReadCieOptions) => Promise<CieReadResult>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "ReadCieOptions"
+          }
+        ],
+        "returns": "Promise<CieReadResult>",
+        "tags": [],
+        "docs": "Legge i dati dalla CIE tramite NFC con autenticazione CAN",
+        "complexTypes": [
+          "CieReadResult",
+          "ReadCieOptions"
+        ],
+        "slug": "readcie"
+      },
+      {
+        "name": "startNfcSession",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "Avvia una sessione NFC per la lettura",
+        "complexTypes": [],
+        "slug": "startnfcsession"
+      },
+      {
+        "name": "stopNfcSession",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "Ferma la sessione NFC attiva",
+        "complexTypes": [],
+        "slug": "stopnfcsession"
+      },
+      {
+        "name": "addListener",
+        "signature": "(eventName: 'nfcTagDetected' | 'nfcProgress' | 'nfcError', listenerFunc: (event: NfcEvent) => void) => Promise<PluginListenerHandle> & PluginListenerHandle",
+        "parameters": [
+          {
+            "name": "eventName",
+            "docs": "",
+            "type": "'nfcTagDetected' | 'nfcProgress' | 'nfcError'"
+          },
+          {
+            "name": "listenerFunc",
+            "docs": "",
+            "type": "(event: NfcEvent) => void"
+          }
+        ],
+        "returns": "Promise<PluginListenerHandle> & PluginListenerHandle",
+        "tags": [],
+        "docs": "Aggiunge un listener per eventi NFC",
+        "complexTypes": [
+          "PluginListenerHandle",
+          "NfcEvent"
+        ],
+        "slug": "addlistenernfctagdetected--nfcprogress--nfcerror"
+      },
+      {
+        "name": "removeAllListeners",
+        "signature": "() => Promise<void>",
+        "parameters": [],
+        "returns": "Promise<void>",
+        "tags": [],
+        "docs": "Rimuove tutti i listener",
+        "complexTypes": [],
+        "slug": "removealllisteners"
+      }
+    ],
+    "properties": []
+  },
+  "interfaces": [
+    {
+      "name": "CieReadResult",
+      "slug": "ciereadresult",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "success",
+          "tags": [],
+          "docs": "Indica se la lettura è avvenuta con successo",
+          "complexTypes": [],
+          "type": "boolean"
+        },
+        {
+          "name": "data",
+          "tags": [],
+          "docs": "Dati della CIE (solo se success = true)",
+          "complexTypes": [
+            "CieData"
+          ],
+          "type": "CieData"
+        },
+        {
+          "name": "error",
+          "tags": [],
+          "docs": "Messaggio di errore (solo se success = false)",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "errorCode",
+          "tags": [],
+          "docs": "Codice di errore specifico",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "readingTime",
+          "tags": [],
+          "docs": "Tempo impiegato per la lettura in millisecondi",
+          "complexTypes": [],
+          "type": "number | undefined"
+        }
+      ]
+    },
+    {
+      "name": "CieData",
+      "slug": "ciedata",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "nome",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "cognome",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "codiceFiscale",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "dataNascita",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "luogoNascita",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "sesso",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "'M' | 'F'"
+        },
+        {
+          "name": "numeroDocumento",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "dataRilascio",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "dataScadenza",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "comuneRilascio",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "fotografia",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "indirizzoResidenza",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "{ via: string; civico: string; cap: string; comune: string; provincia: string; } | undefined"
+        },
+        {
+          "name": "accessLevel",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "'basic' | 'advanced'"
+        },
+        {
+          "name": "readTimestamp",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "nfcSessionId",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "chipSerialNumber",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "documentVersion",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string | undefined"
+        },
+        {
+          "name": "issuerCountry",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "ReadCieOptions",
+      "slug": "readcieoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "can",
+          "tags": [],
+          "docs": "CAN (Card Access Number) - 6 o 8 cifre stampate sulla CIE\n(6 cifre per CIE versioni precedenti, 8 cifre per CIE 3.0)",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "readPhoto",
+          "tags": [
+            {
+              "text": "false",
+              "name": "default"
+            }
+          ],
+          "docs": "Se leggere la fotografia (richiede CAN valido)",
+          "complexTypes": [],
+          "type": "boolean | undefined"
+        },
+        {
+          "name": "readAddress",
+          "tags": [
+            {
+              "text": "false",
+              "name": "default"
+            }
+          ],
+          "docs": "Se leggere l'indirizzo di residenza (richiede CAN valido)",
+          "complexTypes": [],
+          "type": "boolean | undefined"
+        },
+        {
+          "name": "timeout",
+          "tags": [
+            {
+              "text": "30000",
+              "name": "default"
+            }
+          ],
+          "docs": "Timeout in millisecondi per la lettura",
+          "complexTypes": [],
+          "type": "number | undefined"
+        },
+        {
+          "name": "validateChecksum",
+          "tags": [
+            {
+              "text": "true",
+              "name": "default"
+            }
+          ],
+          "docs": "Se validare i checksum dei dati letti",
+          "complexTypes": [],
+          "type": "boolean | undefined"
+        }
+      ]
+    },
+    {
+      "name": "PluginListenerHandle",
+      "slug": "pluginlistenerhandle",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "remove",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "() => Promise<void>"
+        }
+      ]
+    },
+    {
+      "name": "NfcEvent",
+      "slug": "nfcevent",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "type",
+          "tags": [],
+          "docs": "Tipo di evento",
+          "complexTypes": [],
+          "type": "'error' | 'tagDetected' | 'progress'"
+        },
+        {
+          "name": "message",
+          "tags": [],
+          "docs": "Messaggio descrittivo",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "data",
+          "tags": [],
+          "docs": "Dati aggiuntivi dell'evento",
+          "complexTypes": [],
+          "type": "any"
+        },
+        {
+          "name": "timestamp",
+          "tags": [],
+          "docs": "Timestamp dell'evento",
+          "complexTypes": [],
+          "type": "number"
+        }
+      ]
+    }
+  ],
+  "enums": [],
+  "typeAliases": [],
+  "pluginConfigs": []
+}
