@@ -17,6 +17,11 @@ export interface CieNfcPluginPlugin {
   readCie(options: ReadCieOptions): Promise<CieReadResult>;
 
   /**
+   * Legge i dati dalla CIE tramite NFC con autenticazione BAC usando MRZ
+   */
+  readCieWithMrz(options: ReadCieMrzOptions): Promise<CieReadResult>;
+
+  /**
    * Avvia una sessione NFC per la lettura
    */
   startNfcSession(): Promise<void>;
@@ -72,6 +77,47 @@ export interface ReadCieOptions {
   validateChecksum?: boolean;
 }
 
+export interface ReadCieMrzOptions {
+  /**
+   * Numero del documento (come stampato sulla CIE)
+   */
+  documentNumber: string;
+
+  /**
+   * Data di nascita nel formato YYMMDD
+   */
+  dateOfBirth: string;
+
+  /**
+   * Data di scadenza del documento nel formato YYMMDD
+   */
+  dateOfExpiry: string;
+
+  /**
+   * Se leggere la fotografia
+   * @default false
+   */
+  readPhoto?: boolean;
+
+  /**
+   * Se leggere l'indirizzo di residenza
+   * @default false
+   */
+  readAddress?: boolean;
+
+  /**
+   * Timeout in millisecondi per la lettura
+   * @default 30000
+   */
+  timeout?: number;
+
+  /**
+   * Se validare i checksum dei dati letti
+   * @default true
+   */
+  validateChecksum?: boolean;
+}
+
 export interface CieReadResult {
   /**
    * Indica se la lettura è avvenuta con successo
@@ -97,6 +143,11 @@ export interface CieReadResult {
    * Tempo impiegato per la lettura in millisecondi
    */
   readingTime?: number;
+
+  /**
+   * Metodo di autenticazione utilizzato
+   */
+  authMethod?: 'CAN' | 'BAC';
 }
 
 export interface CieData {
@@ -113,7 +164,7 @@ export interface CieData {
   dataRilascio: string; // YYYY-MM-DD
   dataScadenza: string; // YYYY-MM-DD
   comuneRilascio: string;
-  
+
   // Dati opzionali (se autorizzati con CAN)
   fotografia?: string; // Base64 encoded JPEG
   indirizzoResidenza?: {
@@ -128,7 +179,8 @@ export interface CieData {
   accessLevel: 'basic' | 'advanced';
   readTimestamp: number;
   nfcSessionId: string;
-  
+  authMethod: 'CAN' | 'BAC';
+
   // Dati tecnici
   chipSerialNumber?: string;
   documentVersion?: string;
@@ -181,4 +233,3 @@ export interface NfcErrorEvent extends NfcEvent {
     errorMessage: string;
   };
 }
-

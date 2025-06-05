@@ -1,14 +1,10 @@
 package com.yourcompany.plugins.cienfcplugin;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcManager;
-import android.nfc.Tag;
-import android.nfc.tech.IsoDep;
 import android.provider.Settings;
-import android.util.Log;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -16,361 +12,392 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 @CapacitorPlugin(name = "CieNfcPlugin")
 public class CieNfcPluginPlugin extends Plugin {
 
-    private static final String TAG = "CieNfcPlugin";
-    
-    private CieReader cieReader;
-    private NfcAdapter nfcAdapter;
-    private ExecutorService executorService;
-    private boolean sessionActive = false;
+   private static final String TAG = "CieNfcPlugin";
+   private CieReader cieReader;
+   private NfcAdapter nfcAdapter;
 
-    @Override
-    public void load() {
-        super.load();
-        
-        Context context = getContext();
-        NfcManager nfcManager = (NfcManager) context.getSystemService(Context.NFC_SERVICE);
-        
-        if (nfcManager != null) {
-            nfcAdapter = nfcManager.getDefaultAdapter();
-        }
-        
-        cieReader = new CieReader(context, this);
-        executorService = Executors.newSingleThreadExecutor();
-        
-        Log.d(TAG, "Plugin caricato con successo");
-    }
+   @Override
+   public void load() {
+       super.load();
+
+       // Inizializza NFC adapter
+       NfcManager nfcManager = (NfcManager) getActivity().getSystemService(Activity.NFC_SERVICE);
+       if (nfcManager != null) {
+           nfcAdapter = nfcManager.getDefaultAdapter();
+       }
+
+       // Inizializza CIE reader con il plugin come parametro
+       cieReader = new CieReader(getActivity(), this);
+   }
+
+   @PluginMethod
+   public void isNfcAvailable(PluginCall call) {
+       try {
+           boolean available = nfcAdapter != null && nfcAdapter.isEnabled();
+
+           JSObject result = new JSObject();
+           result.put("available", available);
+           call.resolve(result);
+
+       } catch (Exception e) {
+           call.reject("Errore verifica NFC: " + e.getMessage());
+       }
+   }
+
+   @PluginMethod
+   public void enableNfc(PluginCall call) {
+       try {
+           if (nfcAdapter == null) {
+               call.reject("NFC non supportato su questo dispositivo");
+               return;
+           }
+
+           Intent intent = new Intent(Settings.ACTION_NFC_SETTINGS);
+           getActivity().startActivity(intent);
+           call.resolve();
+
+       } catch (Exception e) {
+           call.reject("Errore apertura impostazioni NFC: " + e.getMessage());
+       }
+   }
+
+   @PluginMethod
+   public void readCie(PluginCall call) {
+       try {
+           String can = call.getString("can");
+           Boolean readPhoto = call.getBoolean("readPhoto", false);
+           Boolean readAddress = call.getBoolean("readAddress", false);
+           Integer timeout = call.getInt("timeout", 30000);
+           Boolean validateChecksum = call.getBoolean("validateChecksum", true);
+
+           if (can == null || can.isEmpty()) {
+               call.reject("CAN richiesto per lettura CIE", "MISSING_CAN");
+               return;
+           }
+
+           // Configura callback per eventi
+           CieReader.CieReadCallback callback = new CieReader.CieReadCallback() {
+               @Override
+               public void onSuccess(CieData data) {
+                   JSObject result = new JSObject();
+                   result.put("success", true);
+                   result.put("data", cieDataToJSObject(data));
+                   result.put("readingTime", data.getReadingTime());
+                   result.put("authMethod", "CAN");
+                   call.resolve(result);
+               }
+
+               @Override
+               public void onError(String error, String errorCode) {
+                   JSObject result = new JSObject();
+                   result.put("success", false);
+                   result.put("error", error);
+                   result.put("errorCode", errorCode);
+                   result.put("authMethod", "CAN");
+                   call.resolve(result);
+               }
+
+               @Override
+               public void onProgress(String step, int progress) {
+                   JSObject eventData = new JSObject();
+                   eventData.put("step", step);
+                   eventData.put("progress", progress);
+
+                   JSObject event = new JSObject();
+                   event.put("type", "progress");
+                   event.put("message", step);
+                   event.put("data", eventData);
+                   event.put("timestamp", System.currentTimeMillis());
+
+                   notifyListeners("nfcProgress", event);
+               }
+
+               @Override
+               public void onTagDetected(String tagId, String tagType) {
+                   JSObject eventData = new JSObject();
+                   eventData.put("tagId", tagId);
+                   eventData.put("tagType", tagType);
+                   eventData.put("isoCie", true);
+
+                   JSObject event = new JSObject();
+                   event.put("type", "tagDetected");
+                   event.put("message", "CIE rilevata");
+                   event.put("data", eventData);
+                   event.put("timestamp", System.currentTimeMillis());
+
+                   notifyListeners("nfcTagDetected", event);
+               }
+           };
+
+           // Avvia lettura con CAN
+           cieReader.readCieWithCan(can, readPhoto, readAddress, timeout, validateChecksum, callback);
+
+       } catch (Exception e) {
+           call.reject("Errore lettura CIE: " + e.getMessage(), "READ_ERROR");
+       }
+   }
 
     @PluginMethod
-    public void isNfcAvailable(PluginCall call) {
-        try {
-            boolean available = nfcAdapter != null && nfcAdapter.isEnabled();
-            
-            JSObject result = new JSObject();
-            result.put("available", available);
-            
-            Log.d(TAG, "NFC disponibile: " + available);
-            call.resolve(result);
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Errore verifica NFC", e);
-            call.reject("Errore durante verifica NFC: " + e.getMessage());
-        }
-    }
+    public void readCieWithMrz(PluginCall call) {
+        android.util.Log.d(TAG, "=== Inizio readCieWithMrz ===");
 
-    @PluginMethod
-    public void enableNfc(PluginCall call) {
         try {
+            // Verifica stato NFC e foreground dispatch
+            android.util.Log.d(TAG, "Verifica stato NFC...");
             if (nfcAdapter == null) {
-                call.reject("NFC non supportato su questo dispositivo");
-                return;
-            }
-
-            if (!nfcAdapter.isEnabled()) {
-                // Reindirizza alle impostazioni NFC
-                Intent intent = new Intent(Settings.ACTION_NFC_SETTINGS);
-                getActivity().startActivity(intent);
-                call.reject("NFC disabilitato. Attiva NFC nelle impostazioni.");
-            } else {
-                call.resolve();
-            }
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Errore abilitazione NFC", e);
-            call.reject("Errore durante abilitazione NFC: " + e.getMessage());
-        }
-    }
-
-    @PluginMethod
-    public void readCie(PluginCall call) {
-        try {
-            String can = call.getInt("can").toString();
-            boolean readPhoto = call.getBoolean("readPhoto", false);
-            boolean readAddress = call.getBoolean("readAddress", false);
-            int timeout = call.getInt("timeout", 30000);
-            boolean validateChecksum = call.getBoolean("validateChecksum", true);
-
-            if (can == null || (can.length() != 6 && can.length() != 8)) {
-                call.reject("CAN deve essere di 6 o 8 cifre numeriche", "INVALID_CAN");
-                return;
-            }
-
-            // Validazione formato numerico
-            try {
-                Long.parseLong(can);
-            } catch (NumberFormatException e) {
-                call.reject("CAN deve contenere solo cifre numeriche", "INVALID_CAN_FORMAT");
-                return;
-            }
-
-            if (nfcAdapter == null || !nfcAdapter.isEnabled()) {
-                call.reject("NFC non disponibile o disabilitato", "NFC_NOT_AVAILABLE");
-                return;
-            }
-
-            // Log sicuro del CAN (maschera le cifre sensibili)
-            String maskedCan = can.length() == 6 ? 
-                can.substring(0, 2) + "****" : 
-                can.substring(0, 4) + "****";
-            Log.d(TAG, "Avvio lettura CIE con CAN: " + maskedCan);
-
-            // Esegui lettura in background
-            executorService.execute(() -> {
-                cieReader.readCie(can, readPhoto, readAddress, timeout, validateChecksum, 
-                    new CieReader.CieReadCallback() {
-                        @Override
-                        public void onSuccess(CieData cieData) {
-                            JSObject result = new JSObject();
-                            result.put("success", true);
-                            result.put("data", cieDataToJSObject(cieData));
-                            result.put("readingTime", cieData.getReadingTime());
-                            
-                            Log.d(TAG, "Lettura CIE completata con successo");
-                            call.resolve(result);
-                        }
-
-                        @Override
-                        public void onError(String error, String errorCode) {
-                            JSObject result = new JSObject();
-                            result.put("success", false);
-                            result.put("error", error);
-                            result.put("errorCode", errorCode);
-                            
-                            Log.e(TAG, "Errore lettura CIE: " + error + " (" + errorCode + ")");
-                            call.resolve(result);
-                        }
-
-                        @Override
-                        public void onProgress(String step, int progress) {
-                            JSObject event = new JSObject();
-                            event.put("type", "progress");
-                            event.put("message", step);
-                            
-                            JSObject data = new JSObject();
-                            data.put("step", step);
-                            data.put("progress", progress);
-                            event.put("data", data);
-                            event.put("timestamp", System.currentTimeMillis());
-                            
-                            notifyListeners("nfcProgress", event);
-                        }
-
-                        @Override
-                        public void onTagDetected(String tagId, String tagType, boolean isoCie) {
-                            JSObject event = new JSObject();
-                            event.put("type", "tagDetected");
-                            event.put("message", "CIE rilevata");
-                            
-                            JSObject data = new JSObject();
-                            data.put("tagId", tagId);
-                            data.put("tagType", tagType);
-                            data.put("isoCie", isoCie);
-                            event.put("data", data);
-                            event.put("timestamp", System.currentTimeMillis());
-                            
-                            notifyListeners("nfcTagDetected", event);
-                        }
-                    });
-            });
-
-        } catch (Exception e) {
-            Log.e(TAG, "Errore durante readCie", e);
-            call.reject("Errore durante lettura CIE: " + e.getMessage());
-        }
-    }
-
-    @PluginMethod
-    public void startNfcSession(PluginCall call) {
-        try {
-            sessionActive = true;
-            cieReader.startSession();
-            
-            Log.d(TAG, "Sessione NFC avviata");
-            call.resolve();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Errore avvio sessione NFC", e);
-            call.reject("Errore durante avvio sessione NFC: " + e.getMessage());
-        }
-    }
-
-    @PluginMethod
-    public void stopNfcSession(PluginCall call) {
-        try {
-            sessionActive = false;
-            cieReader.stopSession();
-            
-            Log.d(TAG, "Sessione NFC fermata");
-            call.resolve();
-            
-        } catch (Exception e) {
-            Log.e(TAG, "Errore stop sessione NFC", e);
-            call.reject("Errore durante stop sessione NFC: " + e.getMessage());
-        }
-    }
-
-    private JSObject cieDataToJSObject(CieData cieData) {
-        JSObject jsObject = new JSObject();
-        
-        // Dati anagrafici
-        jsObject.put("nome", cieData.getNome());
-        jsObject.put("cognome", cieData.getCognome());
-        jsObject.put("codiceFiscale", cieData.getCodiceFiscale());
-        jsObject.put("dataNascita", cieData.getDataNascita());
-        jsObject.put("luogoNascita", cieData.getLuogoNascita());
-        jsObject.put("sesso", cieData.getSesso());
-        
-        // Dati documento
-        jsObject.put("numeroDocumento", cieData.getNumeroDocumento());
-        jsObject.put("dataRilascio", cieData.getDataRilascio());
-        jsObject.put("dataScadenza", cieData.getDataScadenza());
-        jsObject.put("comuneRilascio", cieData.getComuneRilascio());
-        jsObject.put("issuerCountry", cieData.getIssuerCountry());
-        
-        // Dati opzionali
-        if (cieData.getFotografia() != null) {
-            jsObject.put("fotografia", cieData.getFotografia());
-        }
-        
-        if (cieData.getIndirizzoResidenza() != null) {
-            JSObject indirizzo = new JSObject();
-            CieData.IndirizzoResidenza addr = cieData.getIndirizzoResidenza();
-            indirizzo.put("via", addr.getVia());
-            indirizzo.put("civico", addr.getCivico());
-            indirizzo.put("cap", addr.getCap());
-            indirizzo.put("comune", addr.getComune());
-            indirizzo.put("provincia", addr.getProvincia());
-            jsObject.put("indirizzoResidenza", indirizzo);
-        }
-        
-        // Metadati
-        jsObject.put("accessLevel", cieData.getAccessLevel());
-        jsObject.put("readTimestamp", cieData.getReadTimestamp());
-        jsObject.put("nfcSessionId", cieData.getNfcSessionId());
-        jsObject.put("chipSerialNumber", cieData.getChipSerialNumber());
-        jsObject.put("documentVersion", cieData.getDocumentVersion());
-        
-        return jsObject;
-    }
-
-    @Override
-    protected void handleOnDestroy() {
-        super.handleOnDestroy();
-        
-        if (executorService != null && !executorService.isShutdown()) {
-            executorService.shutdown();
-        }
-        
-        if (cieReader != null) {
-            cieReader.cleanup();
-        }
-        
-        Log.d(TAG, "Plugin distrutto");
-    }
-
-    @Override
-    protected void handleOnNewIntent(Intent intent) {
-        super.handleOnNewIntent(intent);
-
-        if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(intent.getAction()) ||
-            NfcAdapter.ACTION_TAG_DISCOVERED.equals(intent.getAction())) {
-
-            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            if (tag != null && cieReader != null) {
-                Log.d(TAG, "Tag NFC rilevato: " + tag.toString());
-                cieReader.onTagDetected(tag);
-            }
-        }
-    }
-
-    @PluginMethod
-    public void testNfcDetection(PluginCall call) {
-        try {
-            if (nfcAdapter == null || !nfcAdapter.isEnabled()) {
+                android.util.Log.e(TAG, "NFC Adapter è null");
                 call.reject("NFC non disponibile", "NFC_NOT_AVAILABLE");
                 return;
             }
 
-            Log.d(TAG, "Test rilevamento NFC avviato");
+            android.util.Log.d(TAG, "NFC Adapter stato:");
+            android.util.Log.d(TAG, "  - isEnabled: " + nfcAdapter.isEnabled());
+            android.util.Log.d(TAG, "  - Activity in foreground: " + (getActivity().hasWindowFocus()));
 
-            // Test semplice di rilevamento
-            executorService.execute(() -> {
-                try {
-                    Thread.sleep(1000); // Breve pausa
+            // Verifica se il CieReader ha il foreground dispatch attivo
+            android.util.Log.d(TAG, "Verifica CieReader...");
+            if (cieReader == null) {
+                android.util.Log.e(TAG, "CieReader è null");
+                call.reject("CieReader non inizializzato", "READER_NOT_INITIALIZED");
+                return;
+            }
+
+            String documentNumber = call.getString("documentNumber");
+            String dateOfBirth = call.getString("dateOfBirth");
+            String dateOfExpiry = call.getString("dateOfExpiry");
+            Boolean readPhoto = call.getBoolean("readPhoto", false);
+            Boolean readAddress = call.getBoolean("readAddress", false);
+            Integer timeout = call.getInt("timeout", 30000);
+            Boolean validateChecksum = call.getBoolean("validateChecksum", true);
+
+            android.util.Log.d(TAG, "Parametri ricevuti:");
+            android.util.Log.d(TAG, "  - documentNumber: " + (documentNumber != null ? documentNumber.length() + " caratteri" : "null"));
+            android.util.Log.d(TAG, "  - dateOfBirth: " + dateOfBirth);
+            android.util.Log.d(TAG, "  - dateOfExpiry: " + dateOfExpiry);
+            android.util.Log.d(TAG, "  - readPhoto: " + readPhoto);
+            android.util.Log.d(TAG, "  - readAddress: " + readAddress);
+            android.util.Log.d(TAG, "  - timeout: " + timeout + "ms");
+            android.util.Log.d(TAG, "  - validateChecksum: " + validateChecksum);
+
+            if (documentNumber == null || dateOfBirth == null || dateOfExpiry == null) {
+                android.util.Log.e(TAG, "Errore: Dati MRZ incompleti");
+                call.reject("Dati MRZ incompleti", "MISSING_MRZ_DATA");
+                return;
+            }
+
+            android.util.Log.d(TAG, "Validazione dati MRZ...");
+            if (!isValidMrzData(documentNumber, dateOfBirth, dateOfExpiry)) {
+                android.util.Log.e(TAG, "Errore: Dati MRZ non validi");
+                call.reject("Dati MRZ non validi", "INVALID_MRZ_DATA");
+                return;
+            }
+            android.util.Log.d(TAG, "Validazione MRZ completata con successo");
+
+            // Assicurati che l'app sia in foreground prima di iniziare
+            android.util.Log.d(TAG, "Controllo stato applicazione...");
+            if (!getActivity().hasWindowFocus()) {
+                android.util.Log.w(TAG, "Attenzione: L'app potrebbe non essere in foreground");
+            }
+
+            android.util.Log.d(TAG, "Configurazione callback...");
+            CieReader.CieReadCallback callback = new CieReader.CieReadCallback() {
+                @Override
+                public void onSuccess(CieData data) {
+                    android.util.Log.d(TAG, "Callback onSuccess chiamato");
+                    android.util.Log.d(TAG, "  - Tempo di lettura: " + data.getReadingTime() + "ms");
 
                     JSObject result = new JSObject();
-                    result.put("nfcReady", true);
-                    result.put("adapterEnabled", nfcAdapter.isEnabled());
-                    result.put("message", "NFC pronto per il rilevamento");
+                    result.put("success", true);
+                    result.put("data", cieDataToJSObject(data));
+                    result.put("readingTime", data.getReadingTime());
+                    result.put("authMethod", "BAC");
 
                     call.resolve(result);
-
-                } catch (InterruptedException e) {
-                    call.reject("Test interrotto", "TEST_INTERRUPTED");
                 }
-            });
+
+                @Override
+                public void onError(String error, String errorCode) {
+                    android.util.Log.e(TAG, "Callback onError chiamato");
+                    android.util.Log.e(TAG, "  - Errore: " + error);
+                    android.util.Log.e(TAG, "  - Codice errore: " + errorCode);
+
+                    JSObject result = new JSObject();
+                    result.put("success", false);
+                    result.put("error", error);
+                    result.put("errorCode", errorCode);
+                    result.put("authMethod", "BAC");
+
+                    call.resolve(result);
+                }
+
+                @Override
+                public void onProgress(String step, int progress) {
+                    android.util.Log.d(TAG, "Progress: " + step + " (" + progress + "%)");
+
+                    JSObject eventData = new JSObject();
+                    eventData.put("step", step);
+                    eventData.put("progress", progress);
+
+                    JSObject event = new JSObject();
+                    event.put("type", "progress");
+                    event.put("message", step);
+                    event.put("data", eventData);
+                    event.put("timestamp", System.currentTimeMillis());
+
+                    notifyListeners("nfcProgress", event);
+                }
+
+                @Override
+                public void onTagDetected(String tagId, String tagType) {
+                    android.util.Log.d(TAG, "Tag NFC rilevato nell'app");
+                    android.util.Log.d(TAG, "  - Tag ID: " + tagId);
+                    android.util.Log.d(TAG, "  - Tag Type: " + tagType);
+                    android.util.Log.d(TAG, "  - Timestamp: " + System.currentTimeMillis());
+
+                    JSObject eventData = new JSObject();
+                    eventData.put("tagId", tagId);
+                    eventData.put("tagType", tagType);
+                    eventData.put("isoCie", true);
+
+                    JSObject event = new JSObject();
+                    event.put("type", "tagDetected");
+                    event.put("message", "CIE rilevata");
+                    event.put("data", eventData);
+                    event.put("timestamp", System.currentTimeMillis());
+
+                    notifyListeners("nfcTagDetected", event);
+                }
+            };
+
+            android.util.Log.d(TAG, "Creazione oggetto MrzData...");
+            MrzData mrzData = new MrzData(documentNumber, dateOfBirth, dateOfExpiry);
+
+            android.util.Log.d(TAG, "Avvio lettura CIE con MRZ/BAC...");
+            android.util.Log.d(TAG, "Timestamp avvio: " + System.currentTimeMillis());
+
+            cieReader.readCieWithMrz(mrzData, readPhoto, readAddress, timeout, validateChecksum, callback);
+            android.util.Log.d(TAG, "Comando lettura inviato al CieReader");
 
         } catch (Exception e) {
-            Log.e(TAG, "Errore test NFC", e);
-            call.reject("Errore durante test NFC: " + e.getMessage());
+            android.util.Log.e(TAG, "Eccezione in readCieWithMrz: " + e.getMessage(), e);
+            call.reject("Errore lettura CIE con MRZ: " + e.getMessage(), "READ_MRZ_ERROR");
         }
+
+        android.util.Log.d(TAG, "=== Fine readCieWithMrz ===");
     }
 
 
-@PluginMethod
-public void diagnosticCard(PluginCall call) {
-    try {
-        if (nfcAdapter == null || !nfcAdapter.isEnabled()) {
-            call.reject("NFC non disponibile", "NFC_NOT_AVAILABLE");
-            return;
-        }
 
-        Log.d(TAG, "Avvio diagnostica carta NFC");
+   @PluginMethod
+   public void startNfcSession(PluginCall call) {
+       try {
+           cieReader.startNfcSession();
+           call.resolve();
+       } catch (Exception e) {
+           call.reject("Errore avvio sessione NFC: " + e.getMessage());
+       }
+   }
 
-        executorService.execute(() -> {
-            cieReader.readCie("00000000", false, false, 30000, false,
-                new CieReader.CieReadCallback() {
-                    @Override
-                    public void onSuccess(CieData cieData) {
-                        // Non ci aspettiamo successo con CAN fittizio
-                        JSObject result = new JSObject();
-                        result.put("diagnostic", "completed");
-                        call.resolve(result);
-                    }
+   @PluginMethod
+   public void stopNfcSession(PluginCall call) {
+       try {
+           cieReader.stopNfcSession();
+           call.resolve();
+       } catch (Exception e) {
+           call.reject("Errore stop sessione NFC: " + e.getMessage());
+       }
+   }
 
-                    @Override
-                    public void onError(String error, String errorCode) {
-                        JSObject result = new JSObject();
-                        result.put("diagnostic", "completed");
-                        result.put("lastError", error);
-                        result.put("lastErrorCode", errorCode);
-                        call.resolve(result);
-                    }
+   /**
+    * Converte CieData in JSObject per il ritorno a JavaScript
+    */
+   private JSObject cieDataToJSObject(CieData data) {
+       JSObject jsData = new JSObject();
 
-                    @Override
-                    public void onProgress(String step, int progress) {
-                        // Log dei progressi per debug
-                        Log.d(TAG, "Diagnostica: " + step + " (" + progress + "%)");
-                    }
+       // Dati anagrafici base
+       jsData.put("nome", data.getNome());
+       jsData.put("cognome", data.getCognome());
+       jsData.put("codiceFiscale", data.getCodiceFiscale());
+       jsData.put("dataNascita", data.getDataNascita());
+       jsData.put("luogoNascita", data.getLuogoNascita());
+       jsData.put("sesso", data.getSesso());
 
-                    @Override
-                    public void onTagDetected(String tagId, String tagType, boolean isoCie) {
-                        Log.d(TAG, "Diagnostica - Tag rilevato: " + tagId);
-                    }
-                });
-        });
+       // Dati documento
+       jsData.put("numeroDocumento", data.getNumeroDocumento());
+       jsData.put("dataRilascio", data.getDataRilascio());
+       jsData.put("dataScadenza", data.getDataScadenza());
+       jsData.put("comuneRilascio", data.getComuneRilascio());
+       jsData.put("issuerCountry", data.getIssuerCountry());
 
-    } catch (Exception e) {
-        Log.e(TAG, "Errore diagnostica", e);
-        call.reject("Errore durante diagnostica: " + e.getMessage());
+       // Dati opzionali
+       if (data.getFotografia() != null) {
+           jsData.put("fotografia", data.getFotografia());
+       }
+
+       if (data.getIndirizzoResidenza() != null) {
+           JSObject indirizzo = new JSObject();
+           indirizzo.put("via", data.getIndirizzoResidenza().getVia());
+           indirizzo.put("civico", data.getIndirizzoResidenza().getCivico());
+           indirizzo.put("cap", data.getIndirizzoResidenza().getCap());
+           indirizzo.put("comune", data.getIndirizzoResidenza().getComune());
+           indirizzo.put("provincia", data.getIndirizzoResidenza().getProvincia());
+           jsData.put("indirizzoResidenza", indirizzo);
+       }
+
+       // Metadati lettura
+       jsData.put("accessLevel", data.getAccessLevel());
+       jsData.put("readTimestamp", data.getReadTimestamp());
+       jsData.put("nfcSessionId", data.getNfcSessionId());
+       jsData.put("authMethod", data.getAuthMethod());
+
+       // Dati tecnici
+       if (data.getChipSerialNumber() != null) {
+           jsData.put("chipSerialNumber", data.getChipSerialNumber());
+       }
+       jsData.put("documentVersion", data.getDocumentVersion());
+
+       return jsData;
+   }
+
+   /**
+    * Valida i dati MRZ
+    */
+   private boolean isValidMrzData(String documentNumber, String dateOfBirth, String dateOfExpiry) {
+       // Validazione numero documento (9 caratteri alfanumerici)
+       if (documentNumber == null || !documentNumber.matches("^[A-Z0-9]{9}$")) {
+           return false;
+       }
+
+       // Validazione data di nascita (6 cifre YYMMDD)
+       if (dateOfBirth == null || !dateOfBirth.matches("^\\d{6}$")) {
+           return false;
+       }
+
+       // Validazione data di scadenza (6 cifre YYMMDD)
+       if (dateOfExpiry == null || !dateOfExpiry.matches("^\\d{6}$")) {
+           return false;
+       }
+
+       return true;
+   }
+
+   /**
+    * Ottiene l'NfcAdapter
+    */
+   public NfcAdapter getNfcAdapter() {
+       return nfcAdapter;
+   }
+
+    /**
+     * Ottiene l'istanza del CieReader
+     */
+    public CieReader getCieReader() {
+        android.util.Log.d(TAG, "Richiesta CieReader: " + (cieReader != null ? "disponibile" : "null"));
+        return cieReader;
     }
-}
 
 
 }
-
