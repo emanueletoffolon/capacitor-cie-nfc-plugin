@@ -167,7 +167,7 @@ public class CieReader {
                         throw new CieException("Impossibile selezionare applicazione CIE con nessun metodo", "NO_CIE_APP");
                     }
                 }
-
+                /*
                 // Continua con il resto della lettura...
                 callback.onProgress("Autenticazione PACE...", 40);
 
@@ -180,7 +180,22 @@ public class CieReader {
                     callback.onError("Autenticazione PACE fallita. Verifica il CAN.", "AUTH_FAILED");
                     return;
                 }
-                
+                */
+
+                // Inizializzazione
+                CieNisReader nisReader = new CieNisReader(isoDep, can);
+
+                // Lettura e verifica NIS
+                CieNisReader.CieNisResult result = nisReader.readAndVerifyNis();
+
+                // Controllo risultato
+                if (result.success) {
+                    System.out.println("NIS: " + result.nisNumber);
+                    System.out.println("Originale: " + result.isOriginal);
+                } else {
+                    System.out.println("Errore: " + result.message);
+                }
+
                 callback.onProgress("Lettura dati anagrafici...", 60);
                 
                 // Lettura dati base
