@@ -167,34 +167,23 @@ public class CieReader {
                         throw new CieException("Impossibile selezionare applicazione CIE con nessun metodo", "NO_CIE_APP");
                     }
                 }
-                /*
+
                 // Continua con il resto della lettura...
-                callback.onProgress("Autenticazione PACE...", 40);
+                //callback.onProgress("Autenticazione PACE...", 40);
 
                 
                 // Autenticazione PACE con CAN
-                PaceAuthenticator paceAuth = new PaceAuthenticator();
-                boolean authSuccess = paceAuth.authenticateWithCan(isoDep, can, callback);
-                
-                if (!authSuccess) {
-                    callback.onError("Autenticazione PACE fallita. Verifica il CAN.", "AUTH_FAILED");
-                    return;
+                //PaceAuthenticator paceAuth = new PaceAuthenticator();
+                //boolean authSuccess = paceAuth.authenticateWithCan(isoDep, can, callback);
+                callback.onProgress("Autenticazione con CAN...", 40);
+
+                if (!authenticateWithCan(isoDep, can, callback)) {
+                    throw new CieException("Autenticazione fallita. Verifica il CAN.", "AUTH_FAILED");
                 }
-                */
 
-                // Inizializzazione
-                CieNisReader nisReader = new CieNisReader(isoDep, can);
+                Log.d(TAG, "✅ Autenticazione completata con successo");
+                callback.onProgress("Autenticazione completata", 50);
 
-                // Lettura e verifica NIS
-                CieNisReader.CieNisResult result = nisReader.readAndVerifyNis();
-
-                // Controllo risultato
-                if (result.success) {
-                    System.out.println("NIS: " + result.nisNumber);
-                    System.out.println("Originale: " + result.isOriginal);
-                } else {
-                    System.out.println("Errore: " + result.message);
-                }
 
                 callback.onProgress("Lettura dati anagrafici...", 60);
                 
@@ -248,6 +237,40 @@ public class CieReader {
         return false;
     }
 
+
+
+    /**
+     * Autenticazione con CAN - Solo PACE secondo documentazione CIE
+     */
+    private boolean authenticateWithCan(IsoDep isoDep, String can, CieReadCallback callback) throws Exception {
+        Log.d(TAG, "=== AUTENTICAZIONE CAN - SOLO PACE ===");
+        Log.d(TAG, "Documentazione CIE: Solo PACE supportato con CAN");
+
+        callback.onProgress("Autenticazione PACE con CAN...", 40);
+
+        // Usa SOLO PaceAuthenticator secondo documentazione
+        PaceAuthenticator paceAuthenticator = new PaceAuthenticator();
+        boolean paceSuccess = paceAuthenticator.authenticateWithCan(isoDep, can, callback);
+
+        if (paceSuccess) {
+            Log.d(TAG, "✅ Autenticazione PACE con CAN completata");
+            return true;
+        }
+
+        Log.e(TAG, "❌ Autenticazione PACE fallita");
+
+        // Se PACE fallisce con il CAN, significa che:
+        // 1. Il CAN è sbagliato
+        // 2. La CIE non supporta PACE
+        // 3. C'è un problema di implementazione PACE
+
+        Log.e(TAG, "💡 Suggerimenti:");
+        Log.e(TAG, "   - Verifica che il CAN sia corretto");
+        Log.e(TAG, "   - Assicurati che la CIE supporti PACE");
+        Log.e(TAG, "   - Per CIE molto vecchie, potrebbe servire PIN invece di CAN");
+
+        return false;
+    }
 
 
 
